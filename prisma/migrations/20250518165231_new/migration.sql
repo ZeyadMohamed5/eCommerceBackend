@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "Order" ALTER COLUMN "totalAmount" DROP DEFAULT,
+ALTER COLUMN "updatedAt" DROP DEFAULT;

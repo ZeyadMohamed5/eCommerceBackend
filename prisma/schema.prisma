@@ -1,0 +1,187 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id       Int     @id @default(autoincrement())
+  name     String  @unique
+  password String
+  role     Role
+}
+
+enum Role {
+  admin
+  operator
+}
+
+model Category {
+  id          Int        @id @default(autoincrement())
+  name        String     @unique
+  description String?
+  imageUrl    String?
+  isActive    Boolean    @default(true)
+
+  products    Product[]
+  discounts   Discount[] @relation("CategoryDiscounts")
+}
+
+model Tag {
+  id          Int        @id @default(autoincrement())
+  name        String     @unique
+  description String?
+  isActive    Boolean    @default(true)
+
+  products    Product[] @relation("ProductTags")
+  discounts   Discount[] @relation("TagDiscounts")
+}
+
+model Product {
+  id            Int            @id @default(autoincrement())
+  name          String
+  imageUrl      String
+  description   String?
+  price         Decimal        @db.Decimal(10, 2)
+  previousPrice Decimal?       @db.Decimal(10, 2)
+  stock         Int            @default(0)
+  createdAt     DateTime       @default(now())
+  isActive      Boolean        @default(true)
+
+  category      Category?      @relation(fields: [categoryId], references: [id])
+  categoryId    Int?
+
+  tags          Tag[]          @relation("ProductTags")
+
+  discounts     Discount[]
+  orderItems    OrderItem[]
+  bundleLinks   BundleProduct[]
+  images        ProductImage[]
+}
+
+model ProductImage {
+  id        Int      @id @default(autoincrement())
+  url       String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId Int
+  createdAt DateTime @default(now())
+}
+
+model Discount {
+  id         Int       @id @default(autoincrement())
+  percentage Decimal   @db.Decimal(5, 2)
+  startDate  DateTime
+  endDate    DateTime
+  isActive   Boolean   @default(true)
+
+  product    Product?  @relation(fields: [productId], references: [id])
+  productId  Int?
+
+  category   Category? @relation("CategoryDiscounts", fields: [categoryId], references: [id])
+  categoryId Int?
+
+  tag        Tag?      @relation("TagDiscounts", fields: [tagId], references: [id])
+  tagId      Int?
+}
+
+model Coupon {
+  id             Int       @id @default(autoincrement())
+  code           String    @unique
+  description    String?
+  percentage     Decimal   @db.Decimal(5, 2) 
+  isActive       Boolean   @default(true)
+  startDate      DateTime
+  endDate        DateTime
+  minOrderAmount Decimal?  @db.Decimal(10, 2)
+
+  usedOrders     Order[]   @relation("OrderCoupon")
+}
+
+model Order {
+  id                  Int         @id @default(autoincrement())
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+  status              OrderStatus @default(pending)
+
+  firstName           String
+  lastName            String
+  customerEmail       String?
+  address             String
+  mobileNumber        String
+  anotherMobile       String?
+  anotherAddress      String?
+
+  totalAmount         Decimal     @db.Decimal(10, 2)
+  
+  // currency            String?     @default("EGP")
+  // paymobOrderId       String?
+  // paymobTransactionId String?
+
+  coupon              Coupon?     @relation("OrderCoupon", fields: [couponId], references: [id])
+  couponId            Int?
+
+  // Snapshot of coupon
+  couponCode          String?
+  couponPercentage    Decimal?    @db.Decimal(5, 2)
+  couponDescription   String?
+
+  items               OrderItem[]
+}
+
+model OrderItem {
+  id              Int       @id @default(autoincrement())
+  quantity        Int
+  priceAtPurchase Decimal   @db.Decimal(10, 2)
+
+  productName     String
+  productImageUrl String?
+  productCategory String?
+
+  // Snapshot of discount
+  discountApplied Decimal?  @db.Decimal(5, 2)
+  discountId      Int?      // optional reference to Discount if needed
+
+  order           Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId         Int
+
+  product         Product?  @relation(fields: [productId], references: [id])
+  productId       Int?
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+enum OrderStatus {
+  pending
+  paid
+  processing
+  shipped
+  delivered
+  cancelled
+  failed
+}
+
+model Bundle {
+  id          Int              @id @default(autoincrement())
+  name        String
+  description String?
+  price       Decimal          @db.Decimal(10, 2)
+  createdAt   DateTime         @default(now())
+
+  products    BundleProduct[]
+}
+
+model BundleProduct {
+  bundle     Bundle  @relation(fields: [bundleId], references: [id])
+  bundleId   Int
+
+  product    Product @relation(fields: [productId], references: [id])
+  productId  Int
+
+  quantity   Int     @default(1)
+
+  @@id([bundleId, productId])
+}
